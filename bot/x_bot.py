@@ -770,13 +770,15 @@ def browse_feed_and_engage(config: dict) -> dict:
         logger.error("Flow6: cannot proceed without login")
         return summary
 
-    # Step 2: Navigate to home feed
+    # Step 2: Navigate to home feed — fresh load, scroll to top
     B.open_url("https://x.com/home")
-    B.wait_seconds(5)
+    B.wait_seconds(6)
+    B.eval_js("window.scrollTo(0, 0)")
+    B.wait_seconds(2)
 
     # Step 3: Extract tweets via JS
     JS_FEED_TWEETS = (
-        "Array.from(document.querySelectorAll('article')).slice(0,20).map(a => {"
+        "Array.from(document.querySelectorAll('article')).map(a => {"
         "  const tl = a.querySelector('time')?.parentElement;"
         "  const t = a.querySelector('time');"
         "  const text = a.querySelector('[data-testid=\"tweetText\"]')?.innerText || '';"
@@ -797,8 +799,8 @@ def browse_feed_and_engage(config: dict) -> dict:
     seen_urls = set()
     all_tweets = []
 
-    # Scroll through 8 screenfuls via JS (browse scroll doesn't trigger infinite load)
-    for page in range(8):
+    # Scroll via keyboard End key — triggers X's infinite scroll properly
+    for page in range(12):
         tweets = B.eval_js(JS_FEED_TWEETS)
         if tweets and isinstance(tweets, list):
             for t in tweets:
@@ -806,8 +808,10 @@ def browse_feed_and_engage(config: dict) -> dict:
                 if url and url not in seen_urls:
                     seen_urls.add(url)
                     all_tweets.append(t)
-        if page < 7:
-            B.eval_js("window.scrollBy(0, window.innerHeight * 3)")
+        if page < 11:
+            for _ in range(5):
+                B.press("End")
+                B.wait_seconds(0.5)
             B.wait_seconds(3)
 
     # Step 5: Parse engagement from metrics string and sort descending

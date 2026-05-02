@@ -165,32 +165,31 @@ def decide_engagement(snippet: str, engagement: int, author_info: str) -> dict:
     Decides how to engage with a home-feed tweet based on engagement level.
     Returns {"action": "REPLY"|"REPOST"|"QUOTE"|"SKIP", "reason": "..."}.
     """
-    # Hard threshold — don't waste an API call on low-engagement posts
-    if engagement < 50:
-        return {"action": "SKIP", "reason": "Engagement below minimum threshold (50)"}
+    # Hard threshold — don't waste an API call on very low-engagement posts
+    if engagement < 20:
+        return {"action": "SKIP", "reason": "Engagement below minimum threshold"}
 
     # Determine the candidate tier for the AI to evaluate
-    if engagement >= 500:
+    if engagement >= 300:
         tier = "QUOTE"
         tier_guidance = (
-            "This post has very high engagement (500+). "
-            "Consider QUOTE if the content is insightful and from a notable account — "
-            "worth adding your own technical perspective. "
+            "This post has very high engagement (300+). "
+            "Consider QUOTE if the content is insightful — worth adding your own perspective. "
             "If not insightful enough for a quote, fall back to REPOST or REPLY."
         )
-    elif engagement >= 200:
+    elif engagement >= 100:
         tier = "REPOST"
         tier_guidance = (
-            "This post has strong engagement (200+). "
-            "Consider REPOST if the content is valuable for an AI-focused audience. "
-            "If not valuable enough, fall back to REPLY or SKIP."
+            "This post has strong engagement (100+). "
+            "Consider REPOST if valuable for an AI-focused audience. "
+            "If not valuable enough, fall back to REPLY."
         )
     else:
         tier = "REPLY"
         tier_guidance = (
-            "This post has moderate engagement (50+). "
-            "Consider REPLY if the content is about AI/tech and worth a brief comment. "
-            "Otherwise SKIP."
+            "This post has decent engagement (20+). "
+            "Consider REPLY if the content is about AI/tech. "
+            "Default to REPLY unless clearly off-topic."
         )
 
     system = """You are an engagement strategist for a senior AI engineer's Twitter/X account.
@@ -238,7 +237,13 @@ Engagement score: {engagement}
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"decide_engagement error: {e}")
-    return {"action": "SKIP", "reason": "AI evaluation failed — defaulting to skip"}
+
+    # Fallback: if AI fails, use engagement-based heuristic instead of blindly skipping
+    if engagement >= 500:
+        return {"action": "REPOST", "reason": "AI failed — high engagement fallback"}
+    if engagement >= 100:
+        return {"action": "REPLY", "reason": "AI failed — moderate engagement fallback"}
+    return {"action": "SKIP", "reason": "AI failed and low engagement — skip"}
 
 
 def generate_light_reply(snippet: str) -> Optional[str]:
